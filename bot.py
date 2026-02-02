@@ -7,35 +7,37 @@ JST = timezone(timedelta(hours=+9))
 now = datetime.now(JST)
 tomorrow = now + timedelta(days=1)
 weekday = tomorrow.weekday() # 0:月, 1:火, 2:水, 3:木, 4:金, 5:土, 6:日
+week_number = tomorrow.isocalendar()[1]
 
-# 「隠し金庫」からURLを取り出す
+# GitHubの「隠し金庫」からURLを取り出す
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 message = ""
 
 # --- ゴミ出しの自動判別ライン ---
-# 【月曜】毎週：燃えるゴミ、プラスチック
+
+# 【月曜日】
 if weekday == 0: 
-    message = "明日は **【燃えるゴミ・プラスチック】** の日やでな"
+    message = "明日は\n**【燃えるゴミ・プラスチック】** の日やでな"
 
-# 【火曜】隔週：缶 or 瓶
+# 【火曜日】交互（缶 or 瓶）
 elif weekday == 1: 
-    week_number = tomorrow.isocalendar()[1]
+    # 今週（6週目・偶数）は「缶」
     if week_number % 2 == 0:
-        message = "明日は **【缶】** の日かも"
+        message = "明日は\n**【缶】** の日かも"
     else:
-        message = "明日は **【瓶】** の日らしいで"
+        message = "明日は\n**【瓶】** の日らしいで"
 
-# 【水曜】隔週：ダンボール
+# 【水曜日】隔週（ダンボール）
 elif weekday == 2:
-    week_number = tomorrow.isocalendar()[1]
-    if week_number % 2 == 0:
-        message = "明日は **【ダンボール】** の日っぽい"
+    # 来週（7週目・奇数）から通知するために「!= 0」にしています
+    if week_number % 2 != 0:
+        message = "明日は\n**【ダンボール】** の日っぽい"
 
-# 【木曜】毎週：燃えるゴミ ＋ 隔週：ペットボトル
+# 【木曜日】毎週：燃えるゴミ ＋ 隔週：ペットボトル
 elif weekday == 3:
-    week_number = tomorrow.isocalendar()[1]
-    if week_number % 2 == 0:
+    # ペットボトルも来週（7週目・奇数）なので「!= 0」にしました
+    if week_number % 2 != 0:
         message = "明日は **【燃えるゴミ】** の日やでな\nあ、**【ペットボトル】** も忘れんといてな"
     else:
         message = "明日は **【燃えるゴミ】** の日やでな"
