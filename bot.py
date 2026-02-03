@@ -13,7 +13,7 @@ week_number = tomorrow.isocalendar()[1]
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 # 【追加】ゴミの日じゃない時のデフォルトメッセージ
-message = "明日はごみの日じゃないよ/n安心してね、ちゅ"
+message = "明日はごみの日じゃないよ\n安心してね、ちゅ"
 
 # --- ゴミ出しの自動判別ライン ---
 
@@ -36,7 +36,7 @@ elif weekday == 2:
 # 【木曜日】（ペットボトルは来週・奇数週）
 elif weekday == 3:
     if week_number % 2 != 0:
-        message = "明日は **【燃えるゴミ】** の日やでなあ、**【ペットボトル】** も忘れんといてな"
+        message = "明日は **【燃えるゴミ】** の日やでな\nあ、**【ペットボトル】** も忘れんといてな"
     else:
         message = "明日は **【燃えるゴミ】** の日やでな"
 
