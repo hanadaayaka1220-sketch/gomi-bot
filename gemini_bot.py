@@ -6,30 +6,42 @@ from flask import Flask
 from threading import Thread
 import logging
 
-# ログの設定
 logging.basicConfig(level=logging.INFO)
 
-# 1. Renderの「Timed Out」を完全に回避する設定
+# 1. Renderのタイムアウト対策
 app = Flask('')
 @app.route('/')
-def home():
-    return "Gemini 2 Flash お手伝いさんは元気に稼働中！"
+def home(): return "Online!"
 
 def run():
-    # Renderの無料枠で必要な10000番ポートを開放します
-    port = int(os.environ.get("PORT", 10000))
-    logging.info(f"Binding to port {port}...")
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
 def keep_alive():
-    t = Thread(target=run)
-    t.start()
+    Thread(target=run).start()
 
-# 2. Gemini 2 Flash の設定
+# 2. Geminiの設定：動くモデルを自動で探します
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-# モデル名を Gemini 2 Flash に変更しました
-# 2.0 Flashがダメな場合の、世界一安定した書き方
-model = genai.GenerativeModel("gemini-1.5-flash-latest")
+
+def get_working_model():
+    # 2026年の無料枠で最も可能性が高い順に試します
+    candidate_models = [
+        "gemini-1.5-flash", 
+        "gemini-1.5-flash-8b", 
+        "gemini-2.0-flash",
+        "gemini-1.5-pro"
+    ]
+    for m_name in candidate_models:
+        try:
+            m = genai.GenerativeModel(m_name)
+            # 試しに一言喋らせて、404や429が出ないかチェック
+            m.generate_content("test") 
+            logging.info(f"Successfully picked model: {m_name}")
+            return m
+        except Exception as e:
+            logging.warning(f"Model {m_name} failed: {e}")
+    return genai.GenerativeModel("gemini-1.5-flash") # 最終手段
+
+model = None
 
 # 3. Discord Botの設定
 intents = discord.Intents.default()
@@ -38,33 +50,24 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    global model
+    model = get_working_model()
     logging.info(f'Logged in as {bot.user.name}')
-    print("Gemini 2 Flash 準備完了！")
 
 @bot.event
 async def on_message(message):
-    if message.author == bot.user:
-        return
-
-    # メンションされた時だけお返事します
+    if message.author == bot.user: return
     if bot.user.mentioned_in(message):
         async with message.channel.typing():
             try:
-                # メンション部分を除去してプロンプトを作成
-                prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
-                if not prompt:
-                    prompt = "こんにちは！"
-                
-                # Gemini 3 Flash で回答を生成
-                response = model.generate_content(prompt)
+                clean_text = message.content.replace(f'<@{bot.user.id}>', '').strip()
+                # モデルが準備できていない場合はその場で探し直す
+                active_model = model or get_working_model()
+                response = active_model.generate_content(clean_text or "こんにちは")
                 await message.reply(response.text)
             except Exception as e:
-                logging.error(f"Error: {e}")
-                # 404エラーなどが出た場合のお返事
-                await message.reply(f"ごめん、ちょっと頭が痛くて（エラー：{e}）")
+                await message.reply(f"ごめん、まだ頭が痛いみたい…（エラー：{e}）")
 
-# 4. 実行開始
 if __name__ == "__main__":
-    keep_alive() # 先にウェブサーバーを起動してRenderのタイムアウトを防ぎます
-    # Renderの環境変数からトークンを読み込みます
+    keep_alive()
     bot.run(os.getenv('DISCORD_BOT_TOKEN'))
