@@ -1,6 +1,7 @@
 import os
 import requests
 from datetime import datetime, timedelta, timezone
+from bs4 import BeautifulSoup # 花粉情報を取るためのライブラリ
 
 # 日本時間設定
 JST = timezone(timedelta(hours=+9))
@@ -13,6 +14,7 @@ LAT, LON = "35.6663", "139.3158" # 八王子
 
 if WEATHER_API_KEY and WEBHOOK_URL:
     try:
+        # --- 1. 天気予報の取得 ---
         url = f"https://api.openweathermap.org/data/2.5/forecast?lat={LAT}&lon={LON}&appid={WEATHER_API_KEY}&units=metric&lang=ja"
         data = requests.get(url).json()
         
@@ -25,10 +27,30 @@ if WEATHER_API_KEY and WEBHOOK_URL:
         main_weather = tomorrow_forecasts[4]['weather'][0]['description'] if len(tomorrow_forecasts) > 4 else weather_list[0]
         max_temp = max(temps)
         min_temp = min(temps)
-        temp_diff = max_temp - min_temp # 寒暖差
+        temp_diff = max_temp - min_temp
         max_pop = max(pops)
         
-        # --- 服装アドバイスのロジック ---
+        # --- 2. 花粉情報の取得 (tenki.jp 八王子) ---
+        pollen_msg = "情報が取れなかったよ、ごめんね"
+        try:
+            pollen_url = "https://tenki.jp/pollen/3/16/4410/13201/"
+            res = requests.get(pollen_url, timeout=10)
+            soup = BeautifulSoup(res.text, 'html.parser')
+            # 明日の予報ランクを取得
+            items = soup.find_all(class_='pollen-forecast__item')
+            if len(items) >= 2:
+                rank = items[1].find(class_='pollen-forecast__level').text.strip()
+                pollen_advices = {
+                    "少ない": "ちょっと飛んでるかも？油断は禁物",
+                    "やや多い": "マスクしといたほうが安心かも",
+                    "多い": "結構飛んでる！対策しっかりした方が身の為",
+                    "非常に多い": "ありえへんくらい飛んでる！！！！\n対策してても目も鼻もやられちゃうね😭"
+                }
+                pollen_msg = f"{rank}（{pollen_advices.get(rank, 'しっかり対策しようね')}）"
+        except:
+            pass
+        
+        # --- 3. 服装アドバイス ---
         if max_temp >= 25:
             wear = "半袖で十分！暑さ対策せなしんじゃうかも"
         elif max_temp >= 20:
@@ -40,24 +62,25 @@ if WEATHER_API_KEY and WEBHOOK_URL:
         else:
             wear = "めちゃ寒い、マフラーとか巻いた方がいいでな"
         
-        # 寒暖差が激しい場合（8度以上）の追記
         if temp_diff >= 8:
-            wear += "\n（寒暖差かなり激しくなりそうやで、びっくりしちゃうね）"
+            wear += "\n（寒暖差かなり激しくなりそう、びっくりしちゃうね）"
 
-        # --- 傘アドバイス ---
+        # --- 4. 傘アドバイス ---
         if max_pop >= 50:
-            rain_msg = f"降水確率 {max_pop:.0f}% やから、傘なかったらめっちゃ濡れるで"
+            rain_msg = f"降水確率 {max_pop:.0f}% やから、傘なかったらめっちゃ濡れる確率かなり高め"
         elif max_pop >= 20:
             rain_msg = f"降水確率 {max_pop:.0f}% やから、折りたたみ傘とかあったら安心かも"
         else:
             rain_msg = f"降水確率 {max_pop:.0f}% やし、傘は一切必要なし！"
 
+        # --- 5. メッセージ作成 ---
         message = (
             f"【明日の八王子の予報】\n"
             f"天気：**{main_weather}**\n"
             f"気温：最高 **{max_temp:.1f}度** / 最低 **{min_temp:.1f}度**\n"
             f"服装：{wear}\n"
-            f"雨：{rain_msg}"
+            f"雨：{rain_msg}\n"
+            f"花粉：{pollen_msg}"
         )
         
         requests.post(WEBHOOK_URL, json={"content": message})
