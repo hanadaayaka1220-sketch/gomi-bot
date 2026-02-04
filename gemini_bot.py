@@ -28,7 +28,7 @@ def keep_alive():
 # 2. Gemini 3 Flash の設定
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 # モデル名を Gemini 3 Flash に変更しました
-model = genai.GenerativeModel("gemini-3-flash")
+model = genai.GenerativeModel("gemini-2.0-flash")
 
 # 3. Discord Botの設定
 intents = discord.Intents.default()
