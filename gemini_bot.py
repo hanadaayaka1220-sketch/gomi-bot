@@ -39,7 +39,7 @@ def get_working_model():
             return m
         except Exception as e:
             logging.warning(f"Model {m_name} failed: {e}")
-    return genai.GenerativeModel("gemini-2.0-flash") # 最終手段
+    return genai.GenerativeModel("gemini-2.5-flash") # 最終手段
 
 model = None
 
