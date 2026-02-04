@@ -42,7 +42,7 @@ if WEATHER_API_KEY and WEBHOOK_URL:
         
         # 寒暖差が激しい場合（8度以上）の追記
         if temp_diff >= 8:
-            wear += "\n（寒暖差かなり激しくなりそうやで）"
+            wear += "\n（寒暖差かなり激しくなりそうやで、びっくりしちゃうね）"
 
         # --- 傘アドバイス ---
         if max_pop >= 50:
