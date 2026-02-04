@@ -1,68 +1,57 @@
-import os
 import discord
-import google.generativeai as genai
 from discord.ext import commands
+import google.generativeai as genai
+import os
+from flask import Flask
+from threading import Thread
 
-# 1. 秘密の鍵を読み込む設定
-TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-GEMINI_KEY = os.getenv('GEMINI_API_KEY')
+# 1. Renderの「ポート未検出」エラーを防ぐための設定
+app = Flask('')
+@app.route('/')
+def home():
+    return "Gemini Bot is running!"
 
-# 2. Gemini 3 の設定（賢い脳みその中身）
-genai.configure(api_key=GEMINI_KEY)
+def run():
+    # Renderの無料枠で必要な10000番ポートを開放します
+    app.run(host='0.0.0.0', port=10000)
 
-# ここで「たやさん専用」の性格や知識を教えてあげます
-# あなたの生活スタイルや好きなことをAIに覚えさせています
-SYSTEM_INSTRUCTION = """
-あなたは「たや」の親友であり、頼れるパートナーAIです。
-以下の情報を踏まえて、親しみやすく、答えてください。
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
-【あなたの知っている「たや」について】
-・名前は「たや」。
-・彼氏と同棲していて、仲良しです。
-・ゲームが大好き！
-
-【話し方のルール】
-・柔らかい丁寧語で。
-・たやの味方でいてあげてください。
-"""
-
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash", # 爆速で1日1500回話せるモデル
-    system_instruction=SYSTEM_INSTRUCTION
-)
+# 2. Gemini AIの設定
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 # 3. Discord Botの設定
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # メッセージを読み取る設定
+# 【修正済み】タイポを直しました
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'{bot.user} が24時間体制でログインした！')
+    print(f'Logged in as {bot.user.name}')
 
 @bot.event
 async def on_message(message):
-    # Bot自身には反応しない
+    # Bot自身のメッセージには反応しない
     if message.author == bot.user:
         return
 
-    # メンションされた時だけお返事する
-    if bot.user in message.mentions:
+    # メンションされた時だけ反応
+    if bot.user.mentioned_in(message):
         async with message.channel.typing():
-            # メンションを除いた純粋な質問内容を取り出す
-            prompt = message.content.replace(f'<@{bot.user.id}>', '').strip()
-            
-            if not prompt:
-                await message.reply("呼びましたか？何か手伝うことはありますか？")
-                return
-
             try:
-                # Gemini 3 に聞いてみる
-                response = model.generate_content(prompt)
-                # AIからの返答を送信
+                # メンション部分を除去してAIに送信
+                clean_text = message.content.replace(f'<@{bot.user.id}>', '').strip()
+                response = model.generate_content(clean_text)
                 await message.reply(response.text)
             except Exception as e:
-                await message.reply(f"ごめん、ちょっと頭が痛くて答えられませんでした…。\nエラー：{e}")
+                await message.reply(f"エラーですね：{e}")
 
-# 実行
-bot.run(TOKEN)
+# 4. 実行！
+if __name__ == "__main__":
+    keep_alive()  # ウェブサーバーを起動
+    # Renderの環境変数からトークンを読み込みます
+    bot.run(os.getenv('DISCORD_BOT_TOKEN'))
