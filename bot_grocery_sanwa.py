@@ -1,14 +1,17 @@
 import os
 import requests
-import re # 数字を抽出するために追加
+import re
 from bs4 import BeautifulSoup
 
+# Webhook URL
 WEBHOOK_URL = os.getenv("SANWA_WEBHOOK_URL")
 
 def get_sanwa_sale():
     url = "https://tokubai.co.jp/%E4%B8%89%E5%92%8C/6845"
+    # より「人間がブラウザで見てる」感を出すためのヘッダー
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+        "Accept-Language": "ja-JP,ja;q=0.9"
     }
     
     try:
@@ -17,50 +20,52 @@ def get_sanwa_sale():
         res.encoding = res.apparent_encoding
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 特売品の枠を特定
-        items = soup.select('.product_item')
+        # 1. まずは「商品の枠」を広めに探す
+        items = soup.find_all(class_=re.compile("product|item|card"))
         
         sale_list = []
         for item in items:
-            # 1. 商品名を取得
-            name_tag = item.select_one('.name')
-            if not name_tag: continue
-            name = name_tag.get_text(strip=True)
+            # 商品名を探す
+            name_tag = item.find(class_=re.compile("name|title"))
+            # 値段を探す
+            price_tag = item.find(class_=re.compile("price"))
             
-            # 2. 値段の情報を取得（価格エリア全体を一度取る）
-            price_area = item.select_one('.price_container, .price_text, .price')
-            if not price_area: continue
-            
-            # 3. エリア内のテキストをすべて取得し、"円" という文字と "数字" を含む部分を探す
-            # 産地（静岡県産など）を無視して、値段だけを抜き出す工夫
-            price_text = ""
-            # price_text クラスがあればそれを最優先
-            price_target = price_area.select_one('.price_text')
-            if price_target:
-                price_text = price_target.get_text(strip=True)
-            else:
-                # 無ければエリア全体から「円」を含むテキストを探す
-                all_text = price_area.get_text(" ", strip=True)
-                # 正規表現で「数字+円」のパターンを探す
-                match = re.search(r'[\d,]+円\(税込\)|[\d,]+円', all_text)
-                if match:
-                    price_text = match.group()
-                else:
-                    price_text = all_text.split()[-1] # 一番最後にあるのが値段であることが多い
-            
-            # 余計な記号を掃除
-            price_text = price_text.replace('', '').strip()
-            
-            entry = f"・{name}：**{price_text}**"
-            if entry not in sale_list:
-                sale_list.append(entry)
-        
+            if name_tag and price_tag:
+                name = name_tag.get_text(strip=True)
+                # 値段のテキストから「数字と円」だけを抜き出す
+                price_full = price_tag.get_text(strip=True)
+                # 正規表現で「数字(カンマ込)＋円」を抽出
+                price_match = re.search(r'[\d,]+円', price_full)
+                
+                if price_match:
+                    price = price_match.group()
+                    # 重複を防いでリストに追加
+                    entry = f"・{name}：**{price}**"
+                    if entry not in sale_list:
+                        sale_list.append(entry)
+
+        # 2. 【最終手段】もし上記で見つからなかった場合、ページ内の全テキストから探す
         if not sale_list:
-            return "今日はテキストが見つからんかったわ。直接チラシを見てみてな！\n" + url
+            # ページ内のすべての「円」を含む要素をチェック
+            for tag in soup.find_all(['span', 'p', 'div']):
+                text = tag.get_text(strip=True)
+                if '円' in text and len(text) < 20:
+                    # 数字が含まれているか確認
+                    if re.search(r'\d', text):
+                        # その近く（親要素）にある商品名っぽいのを探す
+                        parent_text = tag.parent.get_text(" ", strip=True)
+                        if parent_text not in sale_list:
+                            sale_list.append(f"・お得品：**{text}**")
+
+        if not sale_list:
+            return f"今日は本当にテキストデータが取れんかった…。直接チラシを見てな！\n{url}"
             
-        header = f"【三和 八王子みなみ野店】今日の特売品やで！\n"
+        header = "【三和 八王子みなみ野店】特売品を力技で見つけてきたで！\n"
         footer = f"\n\n詳細はこちら：\n{url}"
-        return header + "\n".join(sale_list[:15]) + footer
+        
+        # 似たような項目を整理して最大15件
+        unique_sales = list(dict.fromkeys(sale_list))
+        return header + "\n".join(unique_sales[:15]) + footer
         
     except Exception as e:
         return f"ごめん、三和の情報がうまく取れんかった…。\nエラー：{e}"
