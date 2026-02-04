@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 app = Flask('')
 @app.route('/')
 def home():
-    return "Gemini 3 Flash お手伝いさんは元気に稼働中！"
+    return "Gemini 2 Flash お手伝いさんは元気に稼働中！"
 
 def run():
     # Renderの無料枠で必要な10000番ポートを開放します
@@ -25,9 +25,9 @@ def keep_alive():
     t = Thread(target=run)
     t.start()
 
-# 2. Gemini 3 Flash の設定
+# 2. Gemini 2 Flash の設定
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-# モデル名を Gemini 3 Flash に変更しました
+# モデル名を Gemini 2 Flash に変更しました
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 # 3. Discord Botの設定
@@ -38,7 +38,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     logging.info(f'Logged in as {bot.user.name}')
-    print("Gemini 3 Flash 準備完了！")
+    print("Gemini 2 Flash 準備完了！")
 
 @bot.event
 async def on_message(message):
