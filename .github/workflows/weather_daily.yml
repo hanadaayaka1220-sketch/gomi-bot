@@ -1,0 +1,15 @@
+name: 毎日天気通知
+on:
+  schedule:
+    - cron: '0 11 * * *' # 日本時間 20:00
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run
+        env:
+          WEATHER_WEBHOOK_URL: ${{ secrets.WEATHER_WEBHOOK_URL }}
+          WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
+        run: pip install requests && python bot_weather_daily.py
