@@ -17,10 +17,9 @@ SYSTEM_INSTRUCTION = """
 以下の情報を踏まえて、親しみやすく、答えてください。
 
 【あなたの知っている「たや」について】
-・名前は「たや」。八王子近辺に住んでいます。
+・名前は「たや」。
 ・彼氏と同棲していて、仲良しです。
 ・ゲームが大好き！
-・最近、自分でDiscordのゴミ出しBotを完成させた頑張り屋さんです。
 
 【話し方のルール】
 ・柔らかい丁寧語で。
@@ -35,7 +34,7 @@ model = genai.GenerativeModel(
 # 3. Discord Botの設定
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
