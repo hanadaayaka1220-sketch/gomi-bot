@@ -1,0 +1,15 @@
+name: 低気圧アラート（毎時）
+on:
+  schedule:
+    - cron: '0 * * * *' # 1時間に1回
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run
+        env:
+          WEATHER_WEBHOOK_URL: ${{ secrets.WEATHER_WEBHOOK_URL }}
+          WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
+        run: pip install requests && python bot_pressure_hourly.py
