@@ -1,16 +1,14 @@
 import os
 import requests
+import re # 数字を抽出するために追加
 from bs4 import BeautifulSoup
 
-# Webhook URL（秘密の鍵）
 WEBHOOK_URL = os.getenv("SANWA_WEBHOOK_URL")
 
 def get_sanwa_sale():
     url = "https://tokubai.co.jp/%E4%B8%89%E5%92%8C/6845"
     headers = {
-        # ブラウザからのアクセスを装うための、より詳細な設定
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Accept-Language": "ja,en-US;q=0.9,en;q=0.8"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
     }
     
     try:
@@ -19,43 +17,49 @@ def get_sanwa_sale():
         res.encoding = res.apparent_encoding
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 1. 商品の「枠」を、クラス名に頼らず構造から探す
-        # トクバイの特売品は、だいたい aタグ か div の中に固まって入っています
-        items = soup.find_all(['div', 'a'], class_=lambda x: x and 'product' in x)
+        # 特売品の枠を特定
+        items = soup.select('.product_item')
         
         sale_list = []
         for item in items:
-            # 2. 商品名っぽいものを探す
-            name_tag = item.find(['span', 'p', 'div'], class_=lambda x: x and 'name' in x)
+            # 1. 商品名を取得
+            name_tag = item.select_one('.name')
             if not name_tag: continue
+            name = name_tag.get_text(strip=True)
             
-            # 3. 値段っぽいものを探す（数字が含まれる場所を広く探す）
-            # price という文字が入っているクラスか、直接的な数字の場所を探す
-            price_container = item.find(['span', 'p', 'div'], class_=lambda x: x and 'price' in x)
+            # 2. 値段の情報を取得（価格エリア全体を一度取る）
+            price_area = item.select_one('.price_container, .price_text, .price')
+            if not price_area: continue
             
-            if name_tag and price_container:
-                name = name_tag.get_text(strip=True)
-                # 値段の中にある余計な「産地」などの情報を削ぎ落とす
-                price_full = price_container.get_text(" ", strip=True)
-                # 最初の15文字くらいに値段が凝縮されていることが多いので整理
-                price = price_full.split()[0] if price_full else "価格はリンク先へ"
-
-                entry = f"・{name}：**{price}**"
-                if entry not in sale_list:
-                    sale_list.append(entry)
+            # 3. エリア内のテキストをすべて取得し、"円" という文字と "数字" を含む部分を探す
+            # 産地（静岡県産など）を無視して、値段だけを抜き出す工夫
+            price_text = ""
+            # price_text クラスがあればそれを最優先
+            price_target = price_area.select_one('.price_text')
+            if price_target:
+                price_text = price_target.get_text(strip=True)
+            else:
+                # 無ければエリア全体から「円」を含むテキストを探す
+                all_text = price_area.get_text(" ", strip=True)
+                # 正規表現で「数字+円」のパターンを探す
+                match = re.search(r'[\d,]+円\(税込\)|[\d,]+円', all_text)
+                if match:
+                    price_text = match.group()
+                else:
+                    price_text = all_text.split()[-1] # 一番最後にあるのが値段であることが多い
+            
+            # 余計な記号を掃除
+            price_text = price_text.replace('', '').strip()
+            
+            entry = f"・{name}：**{price_text}**"
+            if entry not in sale_list:
+                sale_list.append(entry)
         
         if not sale_list:
-            # もし全滅した場合、ページ内にある「〇〇円」という文字を強引に探す（最終手段）
-            for p in soup.find_all(text=lambda t: '円' in t):
-                if len(p) < 30: # あまりに長い文章は除外
-                    sale_list.append(f"・お得情報：**{p.strip()}**")
-
-        if not sale_list:
-            return "今日は本当にテキストデータが隠されとるみたいや…。チラシを直接見てみてな！\n" + url
+            return "今日はテキストが見つからんかったわ。直接チラシを見てみてな！\n" + url
             
-        header = f"【三和 八王子みなみ野店】特売品を見つけ出してきたで！\n"
+        header = f"【三和 八王子みなみ野店】今日の特売品やで！\n"
         footer = f"\n\n詳細はこちら：\n{url}"
-        
         return header + "\n".join(sale_list[:15]) + footer
         
     except Exception as e:
