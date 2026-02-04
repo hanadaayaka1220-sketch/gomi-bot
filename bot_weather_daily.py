@@ -15,5 +15,5 @@ if WEATHER_API_KEY and WEBHOOK_URL:
     target = data['list'][8] # 明日の昼頃
     weather = target['weather'][0]['description']
     temp = target['main']['temp']
-    msg = f"明日の八王子の天気は\n**【{weather}】**、気温は {temp}度 くらいやでな"
+    msg = f"明日の八王子の天気は\n**【{weather}】**、気温は {temp}度 くらいやで"
     requests.post(WEBHOOK_URL, json={"content": msg})
