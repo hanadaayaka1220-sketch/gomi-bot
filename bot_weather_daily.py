@@ -39,11 +39,11 @@ if WEATHER_API_KEY and WEBHOOK_URL:
         # --- 2. 今日との気温差メッセージ ---
         diff = max_temp - today_max
         if diff <= -3:
-            diff_msg = f"今日より {abs(diff):.1f}度も下がるから寒くなるで"
+            diff_msg = f"今日より {abs(diff):.1f}度も下がるらしい"
         elif diff < 0:
-            diff_msg = f"今日より {abs(diff):.1f}度低いからちょっと冷えるかもやね"
+            diff_msg = f"今日より {abs(diff):.1f}度低いらしい"
         elif diff >= 3:
-            diff_msg = f"今日より {diff:.1f}度も上がるからちょっと暖かくなりそう"
+            diff_msg = f"今日より {diff:.1f}度も上がるらしい"
         else:
             diff_msg = "今日と同じくらいの気温やで"
 
