@@ -1,15 +1,28 @@
 name: 毎日天気通知
+
 on:
   schedule:
-    - cron: '0 11 * * *' # 日本時間 20:00
-  workflow_dispatch:
+    # 毎日日本時間の20:00頃に実行（UTC 11:00）
+    - cron: '0 11 * * *'
+  workflow_dispatch: # 手動でテストするためのボタン
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        # ここで花粉情報を取るための beautifulsoup4 も一緒にインストールします
+        run: pip install requests beautifulsoup4
+
+      - name: Run script
         env:
           WEATHER_WEBHOOK_URL: ${{ secrets.WEATHER_WEBHOOK_URL }}
           WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
-        run: pip install requests && python bot_weather_daily.py
+        run: python bot_weather_daily.py
